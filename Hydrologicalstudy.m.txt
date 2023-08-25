@@ -1,0 +1,60 @@
+clc
+clear all
+
+% Load precipitation data from uploaded Excel file
+file_path = '/MATLAB Drive/50 yr PPT Data.xlsx';
+data = readtable(file_path); % Assuming Time and Precipitation columns
+
+% Extract date and precipitation data
+dates_str = data.date;       % Assuming the variable name is 'Time'
+precip = data.PPT; % Assuming the variable name is 'Precipitation'
+precip = movsum(precip,3);  %taking 3 days cummulative reaifall
+
+% Convert date strings to datetime format
+dates = datetime(dates_str, 'InputFormat', 'dd-MM-yyyy');
+
+[a,~,c] = unique(year(dates),'rows'); % Extract year from datetime
+annmax = [a, accumarray(c, precip, [], @max)];
+annmax = annmax(1:end-1,:);
+
+%% Figure
+figure
+set(gcf, 'position',  [100, 100, 1200, 300])
+plot(annmax(1:end,1),annmax(1:end,2),'-ok','LineWidth', 2, 'MarkerFaceColor','k','Color',[0 0 1])
+xlim([1973 2023])
+xlabel('Year')
+ylabel('precipitation(mm)')
+title('Line plot of observed 3 day cumulative rainfall(in mm)')
+set(gca, 'FontSize', 12)
+set(gca,'YMinorTick','on','XMinorTick','on')
+
+%% Distribution
+%fit gev distribution to annual maximum streamflow data
+para = gevfit(annmax(:,2),0.05);
+
+%use gevinv to calculate inverse value corresponding to return period
+k = 1;
+for i=10:10:200
+    rt(k,1)=i;
+    rt(k,2)=gevinv((1-(1/i)),para(1,1),para(1,2),para(1,3));
+    k = k+1;
+end
+
+%% Return period plot
+figure
+plot(rt(:,1),rt(:,2),'-ok','LineWidth', 1, 'MarkerFaceColor','k','Color',[0 0 1]);
+xlim([10 200])
+xlabel('Return Period (year)')
+ylabel('Return level')
+title("Return level plot")
+
+set(gca, 'FontSize', 12)
+
+%% Individual year calculation
+%Flow corresponding to return period
+rt100=gevinv((1-0.01),para(1,1),para(1,2),para(1,3));
+rt200=gevinv((1-0.005),para(1,1),para(1,2),para(1,3));
+
+%return period corresponding to flow
+rp=gevcdf([42718.8126400000],para(1,1),para(1,2),para(1,3));  %cdf
+rp=1/(1-rp);  %Return Period= 1/(1-cdf)
